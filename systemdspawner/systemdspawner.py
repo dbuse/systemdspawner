@@ -5,6 +5,7 @@ import subprocess
 import shlex
 from traitlets import Bool, Int, Unicode, List
 from tornado import gen
+from tornado.process import Subprocess
 
 from jupyterhub.spawner import Spawner
 from jupyterhub.utils import random_port
@@ -238,10 +239,16 @@ class SystemdSpawner(Spawner):
 
     @gen.coroutine
     def stop(self, now=False):
-        subprocess.check_output(self.systemctl_cmd + [
+        cmd = self.systemctl_cmd + [
             'stop',
             self.unit_name
-        ])
+        ]
+        logging.debug('user:%s stopping user process: %s.', self.user.name, self.unit_name)
+        proc = Subprocess(cmd, stdout=Subprocess.STREAM)
+        try:
+            result = yield proc.wait_for_exit()
+        except subprocess.CalledProcessError:
+            logging.debug('user:%s stopping user process %s failed.', self.user.name, self.unit_name)
 
     @gen.coroutine
     def poll(self):
